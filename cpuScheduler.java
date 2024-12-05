@@ -144,6 +144,64 @@ public class Main {
     }
 
 
+    public static void fcaiScheduling(List<Process> processes, int agingFactor) {
+    // Sort processes initially by arrival time
+    processes.sort(Comparator.comparingInt((Process p) -> p.arrivalTime));
+    List<Process> finalProcesses = new ArrayList<>();
+    List<String> executionOrder = new ArrayList<>();
+
+    int startTime = 0, totalWaiting = 0, totalTurnaround = 0;
+
+    while (!processes.isEmpty()) {
+        // List of processes that are ready
+        List<Process> readyProcesses = new ArrayList<>();
+        for (Process p : processes) {
+            if (p.arrivalTime <= startTime) {
+                readyProcesses.add(p);
+            }
+        }
+
+        // If no process is ready, move to the next arrival time
+        if (readyProcesses.isEmpty()) {
+            startTime = processes.get(0).arrivalTime;
+            continue;
+        }
+
+        // Apply aging: Increase the priority of waiting processes
+        for (Process p : readyProcesses) {
+            p.priority -= agingFactor; // Lower number = higher priority
+        }
+
+        // Sort ready processes by dynamic priority, then by arrival time
+        readyProcesses.sort(Comparator.comparingInt((Process p) -> p.priority)
+                .thenComparingInt(p -> p.arrivalTime));
+
+        // Select the process with the highest adjusted priority
+        Process selectedProcess = readyProcesses.get(0);
+
+        // Execute the selected process
+        selectedProcess.waitingTime = startTime - selectedProcess.arrivalTime;
+        selectedProcess.turnaroundTime = selectedProcess.waitingTime + selectedProcess.burstTime;
+        totalWaiting += selectedProcess.waitingTime;
+        totalTurnaround += selectedProcess.turnaroundTime;
+        startTime += selectedProcess.burstTime;
+
+        // Log execution order
+        executionOrder.add("P" + selectedProcess.id);
+
+        // Add the executed process to the final list and remove it from the original list
+        finalProcesses.add(selectedProcess);
+        processes.remove(selectedProcess);
+    }
+
+    // Print the results
+    print(finalProcesses);
+    System.out.println("\nExecution Order: " + executionOrder);
+    System.out.println("Average Waiting Time = " + (float) totalWaiting / finalProcesses.size());
+    System.out.println("Average Turnaround Time = " + (float) totalTurnaround / finalProcesses.size());
+}
+
+
 public static void priorityScheduling(List<Process> processes) {
     processes.sort(Comparator.comparingInt((Process p) -> p.arrivalTime));
     List<Process> finalProcesses = new ArrayList<>();
@@ -219,12 +277,14 @@ public static void priorityScheduling(List<Process> processes) {
                 break;
             case 4:
                 processes = inputProcesses();
-                //fcai
+                System.out.print("Enter aging factor for FCAI: ");
+                int agingFactor = input.nextInt();
+                fcaiScheduling(processes, agingFactor);
                 break;
             case 5:
-            processes = inputProcesses();
-            priorityScheduling(processes);
-            break;
+               processes = inputProcesses();
+               priorityScheduling(processes);
+                break;
             default:
                 System.out.println("Invalid choice!");
         }
