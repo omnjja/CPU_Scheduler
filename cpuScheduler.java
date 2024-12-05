@@ -144,6 +144,46 @@ public class Main {
     }
 
 
+public static void priorityScheduling(List<Process> processes) {
+    processes.sort(Comparator.comparingInt((Process p) -> p.arrivalTime));
+    List<Process> finalProcesses = new ArrayList<>();
+    List<String> executionOrder = new ArrayList<>();
+
+    int startTime = 0, totalWaiting = 0, totalTurnaround = 0;
+    while (!processes.isEmpty()) {
+        List<Process> readyProcesses = new ArrayList<>();
+        for (Process p : processes) {   // Add arrived processes to the ready list
+            if (p.arrivalTime <= startTime) {
+                readyProcesses.add(p);
+            }
+        }
+
+        if (readyProcesses.isEmpty()) { // No ready process, advance time to next arrival
+            startTime = processes.get(0).arrivalTime;
+            continue;
+        }
+
+        // Sort ready processes by priority (lower priority value = higher priority)
+        readyProcesses.sort(Comparator.comparingInt(p -> p.priority));
+        Process selectedProcess = readyProcesses.get(0);
+
+        selectedProcess.waitingTime = startTime - selectedProcess.arrivalTime;
+        selectedProcess.turnaroundTime = selectedProcess.waitingTime + selectedProcess.burstTime;
+        totalWaiting += selectedProcess.waitingTime;
+        totalTurnaround += selectedProcess.turnaroundTime;
+        startTime += selectedProcess.burstTime;
+
+        executionOrder.add("P" + selectedProcess.id);
+
+        finalProcesses.add(selectedProcess);
+        processes.remove(selectedProcess);
+    }
+
+    print(finalProcesses);
+    System.out.println("\nExecution Order: " + executionOrder);
+    System.out.println("Average Waiting Time = " + (float) totalWaiting / finalProcesses.size());
+    System.out.println("Average Turnaround Time = " + (float) totalTurnaround / finalProcesses.size());
+}
 
 
 
@@ -162,6 +202,7 @@ public class Main {
         System.out.println("2. Preemptive SJF");
         System.out.println("3. Preemptive SJF 'SRTF'");
         System.out.println("4. FCAI ");
+        System.out.println("5. Priority Scheduling");
         int contextSwitchTime = 1;
         int choice = input.nextInt();
         switch (choice) {
@@ -180,6 +221,10 @@ public class Main {
                 processes = inputProcesses();
                 //fcai
                 break;
+            case 5:
+            processes = inputProcesses();
+            priorityScheduling(processes);
+            break;
             default:
                 System.out.println("Invalid choice!");
         }
