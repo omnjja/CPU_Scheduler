@@ -87,6 +87,7 @@ public class Main {
         processes.sort(Comparator.comparingInt((Process p) -> p.arrivalTime));
         List<Process> finalProcesses = new ArrayList<>();
         List<String> executionOrder = new ArrayList<>();
+        List<Integer> switchTime = new ArrayList<>();
 
         int startTime = 0, totalWaiting = 0, totalTurnaround = 0;
         Process lastProcess = null;
@@ -106,6 +107,7 @@ public class Main {
             Process selectedProcess = readyProcesses.get(0);
 
             if (lastProcess != null && lastProcess != selectedProcess) {
+                switchTime.add(startTime);
                 startTime += contextSwitchTime;
             }
 
@@ -134,6 +136,7 @@ public class Main {
         System.out.println("\nExecution Order: " + executionOrder);
         System.out.println("Average Waiting Time = " + (float) totalWaiting / n);
         System.out.println("Average Turnaround Time = " + (float) totalTurnaround / n);
+        System.out.println("switch Time : " + switchTime);
 
         //            // Apply aging (reduce remaining time for fairness)
 //            for (Process p : processes) {
@@ -145,104 +148,103 @@ public class Main {
 
 
     public static void fcaiScheduling(List<Process> processes, int agingFactor) {
-    // Sort processes initially by arrival time
-    processes.sort(Comparator.comparingInt((Process p) -> p.arrivalTime));
-    List<Process> finalProcesses = new ArrayList<>();
-    List<String> executionOrder = new ArrayList<>();
+        // Sort processes initially by arrival time
+        processes.sort(Comparator.comparingInt((Process p) -> p.arrivalTime));
+        List<Process> finalProcesses = new ArrayList<>();
+        List<String> executionOrder = new ArrayList<>();
 
-    int startTime = 0, totalWaiting = 0, totalTurnaround = 0;
+        int startTime = 0, totalWaiting = 0, totalTurnaround = 0;
 
-    while (!processes.isEmpty()) {
-        // List of processes that are ready
-        List<Process> readyProcesses = new ArrayList<>();
-        for (Process p : processes) {
-            if (p.arrivalTime <= startTime) {
-                readyProcesses.add(p);
+        while (!processes.isEmpty()) {
+            // List of processes that are ready
+            List<Process> readyProcesses = new ArrayList<>();
+            for (Process p : processes) {
+                if (p.arrivalTime <= startTime) {
+                    readyProcesses.add(p);
+                }
             }
+
+            // If no process is ready, move to the next arrival time
+            if (readyProcesses.isEmpty()) {
+                startTime = processes.get(0).arrivalTime;
+                continue;
+            }
+
+            // Apply aging: Increase the priority of waiting processes
+            for (Process p : readyProcesses) {
+                p.priority -= agingFactor; // Lower number = higher priority
+            }
+
+            // Sort ready processes by dynamic priority, then by arrival time
+            readyProcesses.sort(Comparator.comparingInt((Process p) -> p.priority)
+                    .thenComparingInt(p -> p.arrivalTime));
+
+            // Select the process with the highest adjusted priority
+            Process selectedProcess = readyProcesses.get(0);
+
+            // Execute the selected process
+            selectedProcess.waitingTime = startTime - selectedProcess.arrivalTime;
+            selectedProcess.turnaroundTime = selectedProcess.waitingTime + selectedProcess.burstTime;
+            totalWaiting += selectedProcess.waitingTime;
+            totalTurnaround += selectedProcess.turnaroundTime;
+            startTime += selectedProcess.burstTime;
+
+            // Log execution order
+            executionOrder.add("P" + selectedProcess.id);
+
+            // Add the executed process to the final list and remove it from the original list
+            finalProcesses.add(selectedProcess);
+            processes.remove(selectedProcess);
         }
 
-        // If no process is ready, move to the next arrival time
-        if (readyProcesses.isEmpty()) {
-            startTime = processes.get(0).arrivalTime;
-            continue;
-        }
-
-        // Apply aging: Increase the priority of waiting processes
-        for (Process p : readyProcesses) {
-            p.priority -= agingFactor; // Lower number = higher priority
-        }
-
-        // Sort ready processes by dynamic priority, then by arrival time
-        readyProcesses.sort(Comparator.comparingInt((Process p) -> p.priority)
-                .thenComparingInt(p -> p.arrivalTime));
-
-        // Select the process with the highest adjusted priority
-        Process selectedProcess = readyProcesses.get(0);
-
-        // Execute the selected process
-        selectedProcess.waitingTime = startTime - selectedProcess.arrivalTime;
-        selectedProcess.turnaroundTime = selectedProcess.waitingTime + selectedProcess.burstTime;
-        totalWaiting += selectedProcess.waitingTime;
-        totalTurnaround += selectedProcess.turnaroundTime;
-        startTime += selectedProcess.burstTime;
-
-        // Log execution order
-        executionOrder.add("P" + selectedProcess.id);
-
-        // Add the executed process to the final list and remove it from the original list
-        finalProcesses.add(selectedProcess);
-        processes.remove(selectedProcess);
+        // Print the results
+        print(finalProcesses);
+        System.out.println("\nExecution Order: " + executionOrder);
+        System.out.println("Average Waiting Time = " + (float) totalWaiting / finalProcesses.size());
+        System.out.println("Average Turnaround Time = " + (float) totalTurnaround / finalProcesses.size());
     }
 
-    // Print the results
-    print(finalProcesses);
-    System.out.println("\nExecution Order: " + executionOrder);
-    System.out.println("Average Waiting Time = " + (float) totalWaiting / finalProcesses.size());
-    System.out.println("Average Turnaround Time = " + (float) totalTurnaround / finalProcesses.size());
-}
 
+    public static void priorityScheduling(List<Process> processes) {
+        processes.sort(Comparator.comparingInt((Process p) -> p.arrivalTime));
+        List<Process> finalProcesses = new ArrayList<>();
+        List<String> executionOrder = new ArrayList<>();
 
-public static void priorityScheduling(List<Process> processes) {
-    processes.sort(Comparator.comparingInt((Process p) -> p.arrivalTime));
-    List<Process> finalProcesses = new ArrayList<>();
-    List<String> executionOrder = new ArrayList<>();
-
-    int startTime = 0, totalWaiting = 0, totalTurnaround = 0;
-    while (!processes.isEmpty()) {
-        List<Process> readyProcesses = new ArrayList<>();
-        for (Process p : processes) {   // Add arrived processes to the ready list
-            if (p.arrivalTime <= startTime) {
-                readyProcesses.add(p);
+        int startTime = 0, totalWaiting = 0, totalTurnaround = 0;
+        while (!processes.isEmpty()) {
+            List<Process> readyProcesses = new ArrayList<>();
+            for (Process p : processes) {   // Add arrived processes to the ready list
+                if (p.arrivalTime <= startTime) {
+                    readyProcesses.add(p);
+                }
             }
+
+            if (readyProcesses.isEmpty()) { // No ready process, advance time to next arrival
+                startTime = processes.get(0).arrivalTime;
+                continue;
+            }
+
+            // Sort ready processes by priority (lower priority value = higher priority)
+            readyProcesses.sort(Comparator.comparingInt(p -> p.priority));
+            Process selectedProcess = readyProcesses.get(0);
+
+            selectedProcess.waitingTime = startTime - selectedProcess.arrivalTime;
+            selectedProcess.turnaroundTime = selectedProcess.waitingTime + selectedProcess.burstTime;
+            totalWaiting += selectedProcess.waitingTime;
+            totalTurnaround += selectedProcess.turnaroundTime;
+            startTime += selectedProcess.burstTime;
+
+            executionOrder.add("P" + selectedProcess.id);
+
+            finalProcesses.add(selectedProcess);
+            processes.remove(selectedProcess);
         }
 
-        if (readyProcesses.isEmpty()) { // No ready process, advance time to next arrival
-            startTime = processes.get(0).arrivalTime;
-            continue;
-        }
-
-        // Sort ready processes by priority (lower priority value = higher priority)
-        readyProcesses.sort(Comparator.comparingInt(p -> p.priority));
-        Process selectedProcess = readyProcesses.get(0);
-
-        selectedProcess.waitingTime = startTime - selectedProcess.arrivalTime;
-        selectedProcess.turnaroundTime = selectedProcess.waitingTime + selectedProcess.burstTime;
-        totalWaiting += selectedProcess.waitingTime;
-        totalTurnaround += selectedProcess.turnaroundTime;
-        startTime += selectedProcess.burstTime;
-
-        executionOrder.add("P" + selectedProcess.id);
-
-        finalProcesses.add(selectedProcess);
-        processes.remove(selectedProcess);
+        print(finalProcesses);
+        System.out.println("\nExecution Order: " + executionOrder);
+        System.out.println("Average Waiting Time = " + (float) totalWaiting / finalProcesses.size());
+        System.out.println("Average Turnaround Time = " + (float) totalTurnaround / finalProcesses.size());
     }
-
-    print(finalProcesses);
-    System.out.println("\nExecution Order: " + executionOrder);
-    System.out.println("Average Waiting Time = " + (float) totalWaiting / finalProcesses.size());
-    System.out.println("Average Turnaround Time = " + (float) totalTurnaround / finalProcesses.size());
-}
-
 
 
     public static void print(List<Process> processes) {
@@ -257,33 +259,29 @@ public static void priorityScheduling(List<Process> processes) {
         List<Process> processes;
         System.out.println("Choose scheduling algorithm:");
         System.out.println("1. Non-Preemptive SJF");
-        System.out.println("2. Preemptive SJF");
-        System.out.println("3. Preemptive SJF 'SRTF'");
-        System.out.println("4. FCAI ");
-        System.out.println("5. Priority Scheduling");
-        int contextSwitchTime = 1;
+        System.out.println("2. Preemptive SJF 'SRTF' ");
+        System.out.println("3. FCAI ");
+        System.out.println("4. Priority Scheduling");
+        int contextSwitchTime = 0;
         int choice = input.nextInt();
         switch (choice) {
             case 1:
-                //
-                break;
-            case 2:
                 processes = inputProcesses();
                 nonPreemptiveSJF(processes);
                 break;
-            case 3:
+            case 2:
                 processes = inputProcesses();
                 SRTF(processes,contextSwitchTime);
                 break;
-            case 4:
+            case 3:
                 processes = inputProcesses();
                 System.out.print("Enter aging factor for FCAI: ");
                 int agingFactor = input.nextInt();
                 fcaiScheduling(processes, agingFactor);
                 break;
-            case 5:
-               processes = inputProcesses();
-               priorityScheduling(processes);
+            case 4:
+                processes = inputProcesses();
+                priorityScheduling(processes);
                 break;
             default:
                 System.out.println("Invalid choice!");
