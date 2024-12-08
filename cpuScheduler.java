@@ -47,10 +47,11 @@ public class Main {
         return processes;
     }
 
-    public static void nonPreemptiveSJF(List<Process> processes) {
+    public static void nonPreemptiveSJF(List<Process> processes, int agingFactor) {
         processes.sort(Comparator.comparingInt((Process p) -> p.arrivalTime));
         List<Process> finalProcesses = new ArrayList<>();
         List<String> executionOrder = new ArrayList<>();
+        Queue<Process> waitingQueue = new LinkedList<>();
 
         int startTime = 0, totalWaiting = 0, totalTurnaround = 0;
         while (!processes.isEmpty()) {
@@ -64,16 +65,22 @@ public class Main {
                 startTime = processes.get(0).arrivalTime;
                 continue;
             }
-
-//            //apply aging: Reduce burst time for processes waiting longer than the threshold
-//            for (Process p : readyProcesses) {
-//                int waitTime = startTime - p.arrivalTime;
-//                if (waitTime > agingThreshold) {
-//                    p.burstTime = Math.max(1, p.burstTime - 1); // Reduce burst time but ensure it remains at least 1
-//                }
-//            }
             readyProcesses.sort(Comparator.comparingInt(p -> p.burstTime)); //sort ready processes by burst time
-            Process selectedProcess = readyProcesses.get(0);
+            //starvation
+            for (Process p : readyProcesses) {
+                int waitTime = startTime - p.arrivalTime ;
+                if (waitTime > agingFactor) {
+                    waitingQueue.add(p);
+                }
+            }
+            Process selectedProcess ;
+            readyProcesses.sort(Comparator.comparingInt(p -> p.remainingTime)); //sort ready processes according to remaining time
+            if (waitingQueue.isEmpty()) {
+                selectedProcess = readyProcesses.get(0);
+            }
+            else {
+                selectedProcess = waitingQueue.poll();
+            }
 
             selectedProcess.waitingTime = startTime - selectedProcess.arrivalTime;
             selectedProcess.turnaroundTime = selectedProcess.waitingTime + selectedProcess.burstTime;
@@ -94,12 +101,13 @@ public class Main {
     }
 
 
-    public static void SRTF(List<Process> processes, int contextSwitchTime) {
+    public static void SRTF(List<Process> processes, int contextSwitchTime, int agingFactor) {
         int n = processes.size();
         processes.sort(Comparator.comparingInt((Process p) -> p.arrivalTime));
         List<Process> finalProcesses = new ArrayList<>();
         List<String> executionOrder = new ArrayList<>();
         List<Integer> switchTime = new ArrayList<>();
+        Queue<Process> waitingQueue = new LinkedList<>();
 
         int startTime = 0, totalWaiting = 0, totalTurnaround = 0;
         Process lastProcess = null;
@@ -114,27 +122,31 @@ public class Main {
                 startTime = processes.get(0).arrivalTime;
                 continue;
             }
-            //apply aging: Reduce remaining time for processes waiting longer than the threshold
+            readyProcesses.sort(Comparator.comparingInt(p -> p.remainingTime));
+             //starvation
             for (Process p : readyProcesses) {
                 int waitTime = startTime - p.arrivalTime - (p.burstTime - p.remainingTime);
-//                if (waitTime > agingThreshold) {
-//                    p.remainingTime = Math.max(1, p.remainingTime - 1); // Ensure remainingTime > 0
-//                }
+                if (waitTime > agingFactor) {
+                    waitingQueue.add(p);
+                }
             }
-
+            Process selectedProcess ;
             readyProcesses.sort(Comparator.comparingInt(p -> p.remainingTime)); //sort ready processes according to remaining time
-            Process selectedProcess = readyProcesses.get(0);
-
+            if (waitingQueue.isEmpty()) {
+                selectedProcess = readyProcesses.get(0);
+            }
+            else {
+                selectedProcess = waitingQueue.poll();
+            }
             if (lastProcess != null && lastProcess != selectedProcess) {
                 switchTime.add(startTime);
                 startTime += contextSwitchTime;
             }
 
-            // Log execution order if switching to a new process
+            //log execution order if switching to a new process
             if (executionOrder.isEmpty() || !executionOrder.get(executionOrder.size() - 1).equals("P" + selectedProcess.id)) {
                 executionOrder.add("P" + selectedProcess.id);
             }
-
             selectedProcess.remainingTime--;
             startTime++;
 
@@ -157,12 +169,6 @@ public class Main {
         System.out.println("Average Turnaround Time = " + (float) totalTurnaround / n);
         System.out.println("switch Time : " + switchTime);
 
-        //            // Apply aging (reduce remaining time for fairness)
-//            for (Process p : processes) {
-//                if (p != selectedProcess && p.arrivalTime <= startTime) {
-//                    p.remainingTime = Math.max(1, p.remainingTime - 1); //make sure remainingTime > 0
-//                }
-//            }
     }
 
     public static void fcaiScheduling(List<Process> processes) {
@@ -180,7 +186,6 @@ public class Main {
         processes.sort(Comparator.comparingInt(p -> p.arrivalTime));
 
         while (!processes.isEmpty() || !readyQueue.isEmpty()) {
-            // Add newly arrived processes to the ready queue
             Iterator<Process> iterator = processes.iterator();
             while (iterator.hasNext()) {
                 Process p = iterator.next();
@@ -190,66 +195,101 @@ public class Main {
                 }
             }
 
-            // If no process is ready, move the time forward
             if (readyQueue.isEmpty()) {
                 currentTime = processes.get(0).arrivalTime;
                 continue;
             }
 
-            // Calculate FCAI factors for all processes in the ready queue
             for (Process p : readyQueue) {
                 p.fcaiFactor = (10 - p.priority) + Math.ceil(p.arrivalTime / V1) + Math.ceil(p.remainingTime / V2);
             }
+            for (Process p : readyQueue) {
+                int quantum = p.quantum;
+                int nonPreemptiveTime = (int) Math.ceil(0.4 * quantum);
+                int executionTime = Math.min(nonPreemptiveTime, p.remainingTime);
+                currentTime += executionTime;
+                p.remainingTime -= executionTime;
+                executionOrder.add("P" + p.id);
+                if (p.remainingTime > 0){
+                    if (readyQueue.size() > 1) {
+                        for (Process p2 : readyQueue) {
+                            if (p2.fcaiFactor < p.fcaiFactor) {
+                                //execute p2
+                                if (p.quantum > executionTime) {
+                                    p.quantum += p.quantum - executionTime;
+                                } else {
+                                    p.quantum += 2;
+                                }
+                                readyQueue.remove(p);
+                                readyQueue.add(p);
+                            }
+                        }
+                    }
 
-            // Sort the ready queue by FCAI factor
-            List<Process> sortedQueue = new ArrayList<>(readyQueue);
-            sortedQueue.sort(Comparator.comparingDouble(p -> p.fcaiFactor));
-            Process currentProcess = sortedQueue.get(0);
-            readyQueue.remove(currentProcess);
-
-            // Execute the process
-            int quantum = currentProcess.quantum;
-            int nonPreemptiveTime = (int) Math.ceil(0.4 * quantum);
-            int executionTime = Math.min(nonPreemptiveTime, currentProcess.remainingTime);
-
-            currentTime += executionTime;
-            currentProcess.remainingTime -= executionTime;
-
-            // Add to execution order
-            if (executionOrder.isEmpty() || !executionOrder.get(executionOrder.size() - 1).equals("P" + currentProcess.id)) {
-                executionOrder.add("P" + currentProcess.id);
+                }
+                else {
+                    p.quantum = 0;
+                    finalProcesses.add(p);
+                    readyQueue.remove();
+                }
+                System.out.println("\nProcess " + p.id +
+                        " Remaining: " + p.remainingTime +
+                        " Quantum: " + p.quantum +
+                        " FCAI: " + p.fcaiFactor);
             }
 
-            // Handle process completion or preemption
-            if (currentProcess.remainingTime > 0) {
-                currentProcess.quantum += (quantum - executionTime); // Update quantum if preempted
-                readyQueue.add(currentProcess); // Re-add to queue
-            } else {
-                // Process completed
-                currentProcess.turnaroundTime = currentTime - currentProcess.arrivalTime;
-                currentProcess.waitingTime = currentProcess.turnaroundTime - currentProcess.burstTime;
-                finalProcesses.add(currentProcess);
-            }
+//            Process currentProcess = readyQueue.poll();
+//
+//            int quantum = currentProcess.quantum;
+//            int nonPreemptiveTime = (int) Math.ceil(0.4 * quantum);
+//            int executionTime = Math.min(nonPreemptiveTime, currentProcess.remainingTime);
+//
+//            currentTime += executionTime;
+//            currentProcess.remainingTime -= executionTime;
+//
+////            if (executionOrder.isEmpty() || !executionOrder.get(executionOrder.size() - 1).equals("P" + currentProcess.id)) {
+////                executionOrder.add("P" + currentProcess.id);
+////            }
+//            executionOrder.add("P" + currentProcess.id);
+//
+//            if (currentProcess.remainingTime > 0) {
+//                if (!processes.isEmpty() && iterator.next().arrivalTime > currentTime) {  // get the arrival time of next proccess in proccesses
+//                    int period = iterator.next().arrivalTime - currentTime ;
+//                    executionTime += period;
+//                    currentProcess.remainingTime -= period;
+//                    currentTime += period;
+//                }
+//                if (executionTime < quantum) { // preemted q = q+2
+//                    currentProcess.quantum += 2 ;
+//                }
+//                else {
+//                    int unused = quantum - executionTime;
+//                    currentProcess.quantum += unused ;
+//                }
+//                readyQueue.add(currentProcess);
+//
+//            } else {
+//                currentProcess.turnaroundTime = currentTime - currentProcess.arrivalTime;
+//                currentProcess.waitingTime = currentProcess.turnaroundTime - currentProcess.burstTime;
+//                finalProcesses.add(currentProcess);
+//            }
 
             // Debugging information
-            System.out.println("\nProcess " + currentProcess.id +
-                    " Remaining: " + currentProcess.remainingTime +
-                    " Quantum: " + currentProcess.quantum +
-                    " FCAI: " + currentProcess.fcaiFactor);
+//            System.out.println("\nProcess " + currentProcess.id +
+//                    " Remaining: " + currentProcess.remainingTime +
+//                    " Quantum: " + currentProcess.quantum +
+//                    " FCAI: " + currentProcess.fcaiFactor);
         }
 
-        // Calculate average waiting and turnaround times
         for (Process p : finalProcesses) {
             totalWaiting += p.waitingTime;
             totalTurnaround += p.turnaroundTime;
         }
 
-        // Output results
         System.out.println("\nExecution Order: " + executionOrder);
         System.out.println("Average Waiting Time = " + (float) totalWaiting / n);
         System.out.println("Average Turnaround Time = " + (float) totalTurnaround / n);
 
-        // Sort final processes by ID and print details
         finalProcesses.sort(Comparator.comparingInt(p -> p.id));
         print(finalProcesses);
     }
@@ -307,23 +347,27 @@ public class Main {
     {
         String filePath = "input.txt"; // Specify the file path
         List<Process> processes;
-
+        int agingFactor;
         System.out.println("Choose scheduling algorithm:");
         System.out.println("1. Non-Preemptive SJF");
         System.out.println("2. Preemptive SJF 'SRTF' ");
         System.out.println("3. FCAI ");
         System.out.println("4. Priority Scheduling");
-        int contextSwitchTime = 1;
-        int agingThreshold = 5;
         int choice = input.nextInt();
         switch (choice) {
             case 1:
+                System.out.print("Enter aging factor for SRTF: ");
+                 agingFactor = input.nextInt();
                 processes = inputProcesses(filePath);
-                nonPreemptiveSJF(processes);
+                nonPreemptiveSJF(processes, agingFactor);
                 break;
             case 2:
+                System.out.print("Enter context switch time for SRTF: ");
+                int contextSwitchTime = input.nextInt();
+                System.out.print("Enter aging factor for SRTF: ");
+                agingFactor = input.nextInt();
                 processes = inputProcesses(filePath);
-                SRTF(processes,contextSwitchTime);
+                SRTF(processes,contextSwitchTime,agingFactor);
                 break;
             case 3:
                 processes = inputProcesses(filePath);
