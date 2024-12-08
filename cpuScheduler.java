@@ -170,129 +170,7 @@ public class Main {
         System.out.println("switch Time : " + switchTime);
 
     }
-
-    public static void fcaiScheduling(List<Process> processes) {
-        int n = processes.size();
-        int lastArrivalTime = processes.stream().mapToInt(p -> p.arrivalTime).max().orElse(0);
-        int maxBurstTime = processes.stream().mapToInt(p -> p.burstTime).max().orElse(1);
-        double V1 = (double) lastArrivalTime / 10.0;
-        double V2 = (double) maxBurstTime / 10.0;
-
-        Queue<Process> readyQueue = new LinkedList<>();
-        List<String> executionOrder = new ArrayList<>();
-        List<Process> finalProcesses = new ArrayList<>();
-        int currentTime = 0, totalWaiting = 0, totalTurnaround = 0;
-
-        processes.sort(Comparator.comparingInt(p -> p.arrivalTime));
-
-        while (!processes.isEmpty() || !readyQueue.isEmpty()) {
-            Iterator<Process> iterator = processes.iterator();
-            while (iterator.hasNext()) {
-                Process p = iterator.next();
-                if (p.arrivalTime <= currentTime) {
-                    readyQueue.add(p);
-                    iterator.remove();
-                }
-            }
-
-            if (readyQueue.isEmpty()) {
-                currentTime = processes.get(0).arrivalTime;
-                continue;
-            }
-
-            for (Process p : readyQueue) {
-                p.fcaiFactor = (10 - p.priority) + Math.ceil(p.arrivalTime / V1) + Math.ceil(p.remainingTime / V2);
-            }
-            for (Process p : readyQueue) {
-                int quantum = p.quantum;
-                int nonPreemptiveTime = (int) Math.ceil(0.4 * quantum);
-                int executionTime = Math.min(nonPreemptiveTime, p.remainingTime);
-                currentTime += executionTime;
-                p.remainingTime -= executionTime;
-                executionOrder.add("P" + p.id);
-                if (p.remainingTime > 0){
-                    if (readyQueue.size() > 1) {
-                        for (Process p2 : readyQueue) {
-                            if (p2.fcaiFactor < p.fcaiFactor) {
-                                //execute p2
-                                if (p.quantum > executionTime) {
-                                    p.quantum += p.quantum - executionTime;
-                                } else {
-                                    p.quantum += 2;
-                                }
-                                readyQueue.remove(p);
-                                readyQueue.add(p);
-                            }
-                        }
-                    }
-
-                }
-                else {
-                    p.quantum = 0;
-                    finalProcesses.add(p);
-                    readyQueue.remove();
-                }
-                System.out.println("\nProcess " + p.id +
-                        " Remaining: " + p.remainingTime +
-                        " Quantum: " + p.quantum +
-                        " FCAI: " + p.fcaiFactor);
-            }
-
-//            Process currentProcess = readyQueue.poll();
-//
-//            int quantum = currentProcess.quantum;
-//            int nonPreemptiveTime = (int) Math.ceil(0.4 * quantum);
-//            int executionTime = Math.min(nonPreemptiveTime, currentProcess.remainingTime);
-//
-//            currentTime += executionTime;
-//            currentProcess.remainingTime -= executionTime;
-//
-////            if (executionOrder.isEmpty() || !executionOrder.get(executionOrder.size() - 1).equals("P" + currentProcess.id)) {
-////                executionOrder.add("P" + currentProcess.id);
-////            }
-//            executionOrder.add("P" + currentProcess.id);
-//
-//            if (currentProcess.remainingTime > 0) {
-//                if (!processes.isEmpty() && iterator.next().arrivalTime > currentTime) {  // get the arrival time of next proccess in proccesses
-//                    int period = iterator.next().arrivalTime - currentTime ;
-//                    executionTime += period;
-//                    currentProcess.remainingTime -= period;
-//                    currentTime += period;
-//                }
-//                if (executionTime < quantum) { // preemted q = q+2
-//                    currentProcess.quantum += 2 ;
-//                }
-//                else {
-//                    int unused = quantum - executionTime;
-//                    currentProcess.quantum += unused ;
-//                }
-//                readyQueue.add(currentProcess);
-//
-//            } else {
-//                currentProcess.turnaroundTime = currentTime - currentProcess.arrivalTime;
-//                currentProcess.waitingTime = currentProcess.turnaroundTime - currentProcess.burstTime;
-//                finalProcesses.add(currentProcess);
-//            }
-
-            // Debugging information
-//            System.out.println("\nProcess " + currentProcess.id +
-//                    " Remaining: " + currentProcess.remainingTime +
-//                    " Quantum: " + currentProcess.quantum +
-//                    " FCAI: " + currentProcess.fcaiFactor);
-        }
-
-        for (Process p : finalProcesses) {
-            totalWaiting += p.waitingTime;
-            totalTurnaround += p.turnaroundTime;
-        }
-
-        System.out.println("\nExecution Order: " + executionOrder);
-        System.out.println("Average Waiting Time = " + (float) totalWaiting / n);
-        System.out.println("Average Turnaround Time = " + (float) totalTurnaround / n);
-
-        finalProcesses.sort(Comparator.comparingInt(p -> p.id));
-        print(finalProcesses);
-    }
+    
 
     public static void priorityScheduling(List<Process> processes) {
         processes.sort(Comparator.comparingInt((Process p) -> p.arrivalTime));
@@ -370,12 +248,7 @@ public class Main {
                 SRTF(processes,contextSwitchTime,agingFactor);
                 break;
             case 3:
-                processes = inputProcesses(filePath);
-                print(processes);
-                System.out.println("before\n");
-//                System.out.print("Enter aging factor for FCAI: ");
-//                int agingFactor = input.nextInt();
-                fcaiScheduling(processes);
+                //fcai
                 break;
             case 4:
                 processes = inputProcesses(filePath);
