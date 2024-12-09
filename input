@@ -1,0 +1,5 @@
+PID     Arrival     Burst   Priority    Quantum
+1       0           17      4           4
+2       3           6       9           3
+3       4           10      3           5
+4       29          4       8           2
