@@ -212,7 +212,99 @@ public class Main {
         System.out.println("Average Waiting Time = " + (float) totalWaiting / finalProcesses.size());
         System.out.println("Average Turnaround Time = " + (float) totalTurnaround / finalProcesses.size());
     }
+ public static void fcaiScheduling(List<Process> processes) {
+        int n = processes.size();
+        int lastArrivalTime = processes.stream().mapToInt(p -> p.arrivalTime).max().orElse(0);
+        int maxBurstTime = processes.stream().mapToInt(p -> p.burstTime).max().orElse(1);
+        double V1 = (double) lastArrivalTime / 10.0;
+        double V2 = (double) maxBurstTime / 10.0;
 
+        Queue<Process> readyQueue = new LinkedList<>();
+        List<String> executionOrder = new ArrayList<>();
+        List<Process> finalProcesses = new ArrayList<>();
+        int currentTime = 0, totalWaiting = 0, totalTurnaround = 0;
+
+        processes.sort(Comparator.comparingInt(p -> p.arrivalTime)); // Sort processes by arrival time
+
+        while (!processes.isEmpty() || !readyQueue.isEmpty()) {
+            // Add arrived processes to the ready queue
+            Iterator<Process> iterator = processes.iterator();
+            while (iterator.hasNext()) {
+                Process p = iterator.next();
+                if (p.arrivalTime <= currentTime) {
+                    readyQueue.add(p);
+                    iterator.remove();
+                }
+            }
+
+            if (readyQueue.isEmpty()) {
+                // Adjust time to the arrival of the next process if no ready processes exist
+                currentTime = processes.get(0).arrivalTime;
+                continue;
+            }
+
+            // Update FCAI factors for processes in the ready queue
+            for (Process p : readyQueue) {
+                p.fcaiFactor = (10 - p.priority) + Math.ceil(p.arrivalTime / V1) + Math.ceil(p.remainingTime / V2);
+            }
+
+            // Select the process with the highest FCAI factor
+            Process currentProcess = readyQueue.poll();
+
+            int quantum = currentProcess.quantum;
+            int nonPreemptiveTime = (int) Math.ceil(0.4 * quantum);
+            int executionTime = Math.min(nonPreemptiveTime, currentProcess.remainingTime);
+
+            currentTime += executionTime;
+            currentProcess.remainingTime -= executionTime;
+
+            // Log execution order if switching to a new process
+            if (executionOrder.isEmpty() || !executionOrder.get(executionOrder.size() - 1).equals("P" + currentProcess.id)) {
+                executionOrder.add("P" + currentProcess.id);
+            }
+
+            if (currentProcess.remainingTime > 0) {
+                // Adjust quantum for unfinished processes
+                if (!processes.isEmpty() && iterator.hasNext()) { // Ensure iterator has a next process
+                    int period = iterator.next().arrivalTime - currentTime;
+                    executionTime += period;
+                    currentProcess.remainingTime -= period;
+                    currentTime += period;
+                }
+                if (executionTime < quantum) {
+                    currentProcess.quantum = Math.min(currentProcess.quantum + 2, 10); // Max quantum capped at 10
+                } else {
+                    int unused = quantum - executionTime;
+                    currentProcess.quantum += unused;
+                }
+                readyQueue.add(currentProcess);
+            } else {
+                // Calculate turnaround and waiting times for finished processes
+                currentProcess.turnaroundTime = currentTime - currentProcess.arrivalTime;
+                currentProcess.waitingTime = currentProcess.turnaroundTime - currentProcess.burstTime;
+                finalProcesses.add(currentProcess);
+            }
+
+            // Debug information for current process state
+            System.out.println("\nProcess " + currentProcess.id +
+                    " Remaining: " + currentProcess.remainingTime +
+                    " Quantum: " + currentProcess.quantum +
+                    " FCAI: " + currentProcess.fcaiFactor);
+        }
+
+        // Calculate total waiting and turnaround times
+        for (Process p : finalProcesses) {
+            totalWaiting += p.waitingTime;
+            totalTurnaround += p.turnaroundTime;
+        }
+
+        System.out.println("\nExecution Order: " + executionOrder);
+        System.out.println("Average Waiting Time = " + (float) totalWaiting / n);
+        System.out.println("Average Turnaround Time = " + (float) totalTurnaround / n);
+
+        finalProcesses.sort(Comparator.comparingInt(p -> p.id));
+        print(finalProcesses);
+    }
 
     public static void print(List<Process> processes) {
         System.out.println("P\tBT\tAT\tP\tQ\tWT\tTAT");
@@ -248,7 +340,10 @@ public class Main {
                 SRTF(processes,contextSwitchTime,agingFactor);
                 break;
             case 3:
-                //fcai
+                System.out.print("Enter context switch time for FCAI: ");
+                int contextSwitchFCAI = input.nextInt();
+                processes = inputProcesses("input.txt");
+                fcaiScheduling(processes);
                 break;
             case 4:
                 processes = inputProcesses(filePath);
