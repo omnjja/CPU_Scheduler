@@ -215,25 +215,25 @@ public class Main {
 
 
            
-          public static void fcaiScheduling(List<Process> processes) {
+    public static void fcaiScheduling(List<Process> processes) {
         List<Process> originalProcesses = new ArrayList<>(processes);
+
         processes.sort(Comparator.comparingInt(p -> p.arrivalTime)); // Sort processes by arrival time
         int currentTime = 0, totalWaiting = 0, totalTurnaround = 0;
         List<String> executionOrder = new ArrayList<>();
         List<Process> readyQueue = new LinkedList<>();
         List<Process> finalProcesses = new ArrayList<>();
-       Map<String, List<Integer>> quantumHistory = new HashMap<>();
-        Map<String, List<Double>> fcaiHistory = new HashMap<>();
+        List<Integer> contextSwitchTimes = new ArrayList<>();
+
         int n = processes.size();
         double lastArrivalTime = processes.stream().mapToDouble(p -> p.arrivalTime).max().orElse(0);
         double maxBurstTime = processes.stream().mapToDouble(p -> p.burstTime).max().orElse(0);
         double V1 = (double) Math.max(lastArrivalTime / 10.0, 1.0);
         double V2 = (double) Math.max(maxBurstTime / 10.0, 1.0);
-        Function<Process, Double> calculateFCAIFactor = process ->
-                ((10 - process.priority) + Math.ceil(process.arrivalTime / V1) + Math.ceil(process.remainingTime / V2));
+        Function<Process, Double> calculateFCAIFactor = process -> ((10 - process.priority) + Math.ceil(process.arrivalTime / V1) + Math.ceil(process.remainingTime / V2));
 
 
-// Initialize FCAI Factor and Quantum for each process
+        // Initialize FCAI Factor and Quantum for each process
         for (Process p : originalProcesses) {
             p.fcaiFactor = calculateFCAIFactor.apply(p);
 //            quantumHistory.put(p.name, new ArrayList<>(List.of(p.quantum))); // Track initial quantum
@@ -258,18 +258,13 @@ public class Main {
             }
             if (!readyQueue.isEmpty()) {
                 Process current = readyQueue.removeFirst();
-
-                // إذا تغيرت العملية، أضف العملية الجديدة إلى الرسم
                 if (executionOrder.isEmpty() || !(executionOrder.get(executionOrder.size() - 1).equals(String.valueOf(current.id)))) {
                     executionOrder.add(String.valueOf(current.id));
+                    contextSwitchTimes.add(currentTime);
                 }
-
-
-                // تنفيذ العملية
                 int executionTime = Math.min(current.quantum, current.remainingTime);
                 int temporaryTime = currentTime ;
                 temporaryTime+=executionTime ;
-
 
                 // Non-preemptive execution for the first 40% of the quantum
                 int nonPreemptiveTime = (int) Math.ceil(current.quantum * 0.4);
@@ -281,7 +276,7 @@ public class Main {
                 // Execute the process, checking for preemption during execution
                 while (actualExecutionTime < current.quantum && current.remainingTime > 0) {
                     if (executionOrder.isEmpty() || !executionOrder.getLast().equals(String.valueOf(current.id))) {
-                        executionOrder.add(String.valueOf(current.id)); // Add to execution order
+                        executionOrder.add("P" + current.id); // Add to execution order
                     }
                     while (!processes.isEmpty() && processes.getFirst().arrivalTime <= currentTime) {
                         Process arrivingProcess = processes.removeFirst();
@@ -291,7 +286,6 @@ public class Main {
                         }
 
                     }
-
                     if (actualExecutionTime >= nonPreemptiveTime && !readyQueue.isEmpty()) {
                         List<Process> tempQueue = new ArrayList<>(readyQueue);
                         tempQueue.sort(Comparator.comparingDouble(p -> p.fcaiFactor));
@@ -306,13 +300,11 @@ public class Main {
                         }
 
                     }
-
                     currentTime++; // Advance the total time by 1 unit
                     current.remainingTime--; // Decrease the remaining burst time
                     actualExecutionTime++; // Track the time used by the process
 
                 }
-
                 // If process finished its full quantum, check if another process can run in the remaining time
                 if (current.remainingTime == 0 && !readyQueue.isEmpty()) {
                     Process nextProcess = readyQueue.getFirst();
@@ -322,7 +314,6 @@ public class Main {
                         readyQueue.add(nextProcess);
                     }
                 }
-
 
                 if (current.remainingTime > 0) {
                     if (!preempted) {
@@ -368,12 +359,14 @@ public class Main {
         double avgWaitingTime = (double) totalWaiting / originalProcesses.size();
         double avgTurnaroundTime = (double) totalTurnaround / originalProcesses.size();
 
+        finalProcesses.sort(Comparator.comparingInt(p -> p.id));
+        print(finalProcesses);
         System.out.println("\nExecution Order: " + executionOrder);
         System.out.println("Average Waiting Time = " + (float) totalWaiting / n);
         System.out.println("Average Turnaround Time = " + (float) totalTurnaround / n);
+        System.out.println("Context Switch Times: " + contextSwitchTimes);
 
-        finalProcesses.sort(Comparator.comparingInt(p -> p.id));
-        print(finalProcesses);
+
     }
 
 
