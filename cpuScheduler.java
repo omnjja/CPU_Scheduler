@@ -390,7 +390,7 @@ public class Main {
         int choice = input.nextInt();
         switch (choice) {
             case 1:
-                System.out.print("Enter aging factor for SRTF: ");
+                System.out.print("Enter aging factor for SJF: ");
                  agingFactor = input.nextInt();
                 processes = inputProcesses(filePath);
                 nonPreemptiveSJF(processes, agingFactor);
