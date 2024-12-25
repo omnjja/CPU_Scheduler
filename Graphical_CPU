@@ -1,8 +1,13 @@
 package com.example.graphical_cpu;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.*;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -12,6 +17,7 @@ import javafx.scene.layout.GridPane;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 class Process {
     int id;
@@ -40,37 +46,44 @@ class Process {
 
 public class Main extends Application {
     static Scanner input = new Scanner(System.in);
-    // Static data for processes and scheduling
-    public static List<Process> processes;
+    // data for processes and scheduling
+    public static List<Process> processes = new ArrayList<>();
     public static List<String> executionOrder;
     public static float averageWaitingTime;
     public static float averageTurnaroundTime;
-    public static List<Integer> switchTime = new ArrayList<>();  // for SRTF
+    public static List<Integer> switchTime = new ArrayList<>();  // for SRTF , fcai
 
     @Override
     public void start(Stage primaryStage) {
-        // Main layout
-        BorderPane root = new BorderPane();
 
-        // Create a canvas for the Gantt chart
-        Canvas canvas = new Canvas(800, 400);
-        GraphicsContext gc = canvas.getGraphicsContext2D();
-        drawGanttChart(gc);
+        try {
+            // main layout
+            BorderPane root = new BorderPane();
 
-        // Add process information and statistics
-        GridPane processInfo = createProcessInfo();
-        Label stats = createStatistics();
+            // create a canvas for the Gantt chart
+            Canvas canvas = new Canvas(800, 400);
+            GraphicsContext gc = canvas.getGraphicsContext2D();
+            drawGanttChart(gc);
 
-        // Add components to layout
-        root.setTop(canvas);
-        root.setRight(processInfo);
-        root.setBottom(stats);
+            // add process information and statistics
+            GridPane processInfo = createProcessInfo();
+            Label stats = createStatistics();
 
-        // Set scene
-        Scene scene = new Scene(root, 1000, 600);
-        primaryStage.setScene(scene);
-        primaryStage.setTitle("CPU Scheduling Graph");
-        primaryStage.show();
+            // add components to layout
+            root.setTop(canvas);
+            root.setRight(processInfo);
+            root.setBottom(stats);
+
+            // set scene
+            Scene scene = new Scene(root, 1000, 600);
+            primaryStage.setScene(scene);
+            primaryStage.setTitle("CPU Scheduling Graph");
+            primaryStage.show();
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.println("Error during application startup: " + e.getMessage());
+            Platform.exit(); // exit the application
+        }
     }
 
     private void drawGanttChart(GraphicsContext gc) {
@@ -79,54 +92,54 @@ public class Main extends Application {
             return;
         }
 
-        double x = 50; // Starting X position for Gantt bars
+        double x = 50; // starting X position for Gantt bars
         double y = 50; // Y position
-        double barHeight = 50; // Height of each bar
-        double unitWidth = 20; // Width of each time unit
+        double barHeight = 50; // height of each bar
+        double unitWidth = 20; // width of each time unit
 
 
         int i = -1;
-        // Loop through the execution order to draw the Gantt chart
+        // loop through the execution order to draw the Gantt chart
         for (String processId : executionOrder) {
-            // Create the process object dynamically using the ID from the execution order
-            Process process = findProcessById(Integer.parseInt(processId.substring(1)));
 
+            // create the process object dynamically using the ID from the execution order
+            Process process = findProcessById(Integer.parseInt(processId.substring(1)));
             if (process != null) {
                 if(executionOrder.size() == processes.size()){
-                    // Set color dynamically
+                    // set color dynamically
                     gc.setFill(getColorForProcess(process.id));
                     gc.fillRect(x, y, unitWidth * process.burstTime, barHeight);
 
-                    // Add process label
+                    // add process label
                     gc.setFill(Color.BLACK);
                     gc.fillText(processId, x + 5, y + 30);
 
-                    // Update X for next process
+                    // update X for next process
                     x += unitWidth * process.burstTime;
                 }
                 else{
                     ++i;
 
-                    int updatedValue = switchTime.get(0);
+                    int updatedValue = switchTime.getFirst();
                     if(i != 0) {
-                        updatedValue = switchTime.get(i) - switchTime.get(i - 1); // Calculate the new value
+                        updatedValue = switchTime.get(i) - switchTime.get(i - 1); // calculate the new value
                     }
 
-                    // Set color dynamically
+                    // set color dynamically
                     gc.setFill(getColorForProcess(process.id));
                     gc.fillRect(x, y, unitWidth * updatedValue, barHeight);
 
-                    // Add process label
+                    // add process label
                     gc.setFill(Color.BLACK);
                     gc.fillText(processId, x + 5, y + 30);
 
-                    // Update X for next process
+                    // update X for next process
                     x += unitWidth * updatedValue;
                 }
             }
         }
 
-        // Draw time markers
+        // draw time markers
         gc.setFill(Color.BLACK);
         double time = 0;
         x = 50;
@@ -136,10 +149,10 @@ public class Main extends Application {
 
             if (process != null) {
                 if (executionOrder.size() == processes.size()){
-                    // Draw the current time marker
+                    // draw the current time marker
                     gc.fillText(String.valueOf((int) time), x, y + barHeight + 20);
 
-                    // Update time and x-position for the next marker
+                    // update time and x-position for the next marker
                     time += process.burstTime;
                     x += unitWidth * process.burstTime;
                 }
@@ -147,13 +160,13 @@ public class Main extends Application {
                     ++i;
                     int updatedValue = switchTime.get(0);
                     if(i != 0) {
-                        updatedValue = switchTime.get(i) - switchTime.get(i - 1); // Calculate the new value
+                        updatedValue = switchTime.get(i) - switchTime.get(i - 1); // calculate the new value
                     }
 
-                    // Draw the current time marker
+                    // draw the current time marker
                     gc.fillText(String.valueOf((int) time), x, y + barHeight + 20);
 
-                    // Update time and x-position for the next marker
+                    // update time and x-position for the next marker
                     time += updatedValue;
                     x += unitWidth * updatedValue;
                 }
@@ -161,7 +174,7 @@ public class Main extends Application {
             }
         }
 
-        // Add the final time marker
+        // add the final time marker
         gc.fillText(String.valueOf((int) time), x, y + barHeight + 20);
 
     }
@@ -175,7 +188,6 @@ public class Main extends Application {
         }
         return null;
     }
-
 
     private GridPane createProcessInfo() {
         GridPane grid = new GridPane();
@@ -231,50 +243,74 @@ public class Main extends Application {
         }
     }
 
-    public static void main(String[] args) {
-        // Initialize sample processes
-        processes = new ArrayList<>();
-        processes.add(new Process(0, 0, 17,4,4));
-        processes.add(new Process(1, 3, 6,9,3));
-        processes.add(new Process(2, 4, 10,3,5));
-        processes.add(new Process(3, 29, 4,8,2));
+    public static List<Process> inputProcesses(String filePath) {
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String line = br.readLine(); // Skip the header line
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.split("\\s+"); // Split by whitespace
+                int id = Integer.parseInt(parts[0]); // PID
+                int arrivalTime = Integer.parseInt(parts[1]); // Arrival Time
+                int burstTime = Integer.parseInt(parts[2]); // Burst Time
+                int priority = Integer.parseInt(parts[3]); // Priority
+                int quantum = Integer.parseInt(parts[4]); // Quantum
+                processes.add(new Process(id, arrivalTime, burstTime, priority, quantum));
+            }
+        } catch (IOException e) {
+            System.err.println("Error reading file: " + e.getMessage());
+        }
+        return processes;
+    }
 
+
+    public static void main(String[] args) {
+
+        String filePath = "src/main/java/com/example/graphical_cpu/input.txt"; // Specify the file path
+        List<Process> processes;
+        int agingFactor;
         System.out.println("Choose scheduling algorithm:");
         System.out.println("1. Non-Preemptive SJF");
         System.out.println("2. Preemptive SJF 'SRTF' ");
         System.out.println("3. FCAI ");
         System.out.println("4. Priority Scheduling");
-        int contextSwitchTime = 0;
         int choice = input.nextInt();
         switch (choice) {
             case 1:
-                executionOrder = nonPreemptiveSJF(processes);
+                System.out.print("Enter aging factor for SRTF: ");
+                agingFactor = input.nextInt();
+                processes = inputProcesses(filePath);
+                executionOrder = nonPreemptiveSJF(processes, agingFactor);
                 launch(args);
                 break;
             case 2:
-                executionOrder = SRTF(processes,contextSwitchTime);
+                System.out.print("Enter context switch time for SRTF: ");
+                int contextSwitchTime = input.nextInt();
+                System.out.print("Enter aging factor for SRTF: ");
+                agingFactor = input.nextInt();
+                processes = inputProcesses(filePath);
+                SRTF(processes,contextSwitchTime,agingFactor);
+                executionOrder = SRTF(processes,contextSwitchTime, agingFactor);
                 launch(args);
                 break;
             case 3:
-                print(processes);
-                System.out.println("before\n");
+                processes = inputProcesses(filePath);
                 executionOrder = fcaiScheduling(processes);
                 launch(args);
                 break;
             case 4:
+                processes = inputProcesses(filePath);
                 executionOrder = priorityScheduling(processes);
                 launch(args);
-
                 break;
             default:
                 System.out.println("Invalid choice!");
         }
     }
 
-    public static List<String> nonPreemptiveSJF(List<Process> processes) {
+    public static List<String> nonPreemptiveSJF(List<Process> processes, int agingFactor) {
         processes.sort(Comparator.comparingInt((Process p) -> p.arrivalTime));
         List<Process> finalProcesses = new ArrayList<>();
         List<String> executionOrder = new ArrayList<>();
+        Queue<Process> waitingQueue = new LinkedList<>();
         List<Process> readyQueue = new ArrayList<>(processes); // Use a separate list for scheduling
 
 
@@ -292,7 +328,21 @@ public class Main extends Application {
             }
 
             readyProcesses.sort(Comparator.comparingInt(p -> p.burstTime)); //sort ready processes by burst time
-            Process selectedProcess = readyProcesses.get(0);
+            //starvation
+            for (Process p : readyProcesses) {
+                int waitTime = startTime - p.arrivalTime ;
+                if (waitTime > agingFactor) {
+                    waitingQueue.add(p);
+                }
+            }
+            Process selectedProcess ;
+            readyProcesses.sort(Comparator.comparingInt(p -> p.remainingTime)); //sort ready processes according to remaining time
+            if (waitingQueue.isEmpty()) {
+                selectedProcess = readyProcesses.get(0);
+            }
+            else {
+                selectedProcess = waitingQueue.poll();
+            }
 
             selectedProcess.waitingTime = startTime - selectedProcess.arrivalTime;
             selectedProcess.turnaroundTime = selectedProcess.waitingTime + selectedProcess.burstTime;
@@ -311,30 +361,18 @@ public class Main extends Application {
         System.out.println("Average Turnaround Time = " + (float) totalTurnaround / executionOrder.size());
         System.out.println("this is execution order" + executionOrder);
 
-
-//        List<String> order = new ArrayList<>();
-//        processes.sort((p1, p2) -> Integer.compare(p1.burstTime, p2.burstTime)); // Sort by burst time
-//
-//        int currentTime = 0;
-//        for (Process process : processes) {
-//            process.waitingTime = Math.max(0, currentTime - process.arrivalTime);
-//            currentTime += process.burstTime;
-//            process.turnaroundTime = process.waitingTime + process.burstTime;
-//            order.add("P" + process.id);
-//        }
-
-        // Calculate averages
+        // calculate averages
         averageWaitingTime = (float) totalWaiting / executionOrder.size();
         averageTurnaroundTime = (float) totalTurnaround / executionOrder.size();
-//        System.out.println("this is order" + order);
         return executionOrder;
     }
 
-    public static List<String> SRTF(List<Process> processes, int contextSwitchTime) {
+    public static List<String> SRTF(List<Process> processes, int contextSwitchTime, int agingFactor) {
         int n = processes.size();
         processes.sort(Comparator.comparingInt((Process p) -> p.arrivalTime));
         List<Process> finalProcesses = new ArrayList<>();
         List<String> executionOrder = new ArrayList<>();
+        Queue<Process> waitingQueue = new LinkedList<>();
         List<Process> readyQueue = new ArrayList<>(processes); // Use a separate list for scheduling
 
 
@@ -353,8 +391,21 @@ public class Main extends Application {
             }
 
             readyProcesses.sort(Comparator.comparingInt(p -> p.remainingTime)); //sort ready processes according to remaining time
-            Process selectedProcess = readyProcesses.get(0);
-
+            //starvation
+            for (Process p : readyProcesses) {
+                int waitTime = startTime - p.arrivalTime - (p.burstTime - p.remainingTime);
+                if (waitTime > agingFactor) {
+                    waitingQueue.add(p);
+                }
+            }
+            Process selectedProcess ;
+            readyProcesses.sort(Comparator.comparingInt(p -> p.remainingTime)); //sort ready processes according to remaining time
+            if (waitingQueue.isEmpty()) {
+                selectedProcess = readyProcesses.get(0);
+            }
+            else {
+                selectedProcess = waitingQueue.poll();
+            }
             if (lastProcess != null && lastProcess != selectedProcess) {
                 switchTime.add(startTime);
                 startTime += contextSwitchTime;
@@ -390,12 +441,6 @@ public class Main extends Application {
         averageWaitingTime = (float) totalWaiting / n;
         averageTurnaroundTime = (float) totalTurnaround / n;
         return executionOrder;
-        //            // Apply aging (reduce remaining time for fairness)
-//            for (Process p : processes) {
-//                if (p != selectedProcess && p.arrivalTime <= startTime) {
-//                    p.remainingTime = Math.max(1, p.remainingTime - 1); //make sure remainingTime > 0
-//                }
-//            }
     }
 
     public static List<String> priorityScheduling(List<Process> processes) {
@@ -446,99 +491,162 @@ public class Main extends Application {
     }
 
     public static List<String> fcaiScheduling(List<Process> processes) {
-        int n = processes.size();
-        int lastArrivalTime = processes.stream().mapToInt(p -> p.arrivalTime).max().orElse(0);
-        int maxBurstTime = processes.stream().mapToInt(p -> p.burstTime).max().orElse(1);
-        double V1 = (double) lastArrivalTime / 10.0;
-        double V2 = (double) maxBurstTime / 10.0;
+        // Create a copy of the processes list to prevent changes to the original list
+        List<Process> processesCopy = new ArrayList<>();
+        for (Process p : processes) {
+            // Create a new Process object for each one to avoid modifying the original list
+            processesCopy.add(new Process(p.id, p.arrivalTime, p.burstTime, p.priority, p.quantum));
+        }
 
-        Queue<Process> readyQueue = new LinkedList<>();
-        List<String> executionOrder = new ArrayList<>();
-        List<Process> finalProcesses = new ArrayList<>();
-        List<Process> storedProcesses = new ArrayList<>(processes); // Use a separate list for scheduling
-
-
+        processesCopy.sort(Comparator.comparingInt(p -> p.arrivalTime)); // Sort processes by arrival time
         int currentTime = 0, totalWaiting = 0, totalTurnaround = 0;
+        List<String> executionOrder = new ArrayList<>();
+        List<Process> readyQueue = new LinkedList<>();
+        List<Process> finalProcesses = new ArrayList<>();
 
-        processes.sort(Comparator.comparingInt(p -> p.arrivalTime));
+        int n = processesCopy.size();
+        double lastArrivalTime = processesCopy.stream().mapToDouble(p -> p.arrivalTime).max().orElse(0);
+        double maxBurstTime = processesCopy.stream().mapToDouble(p -> p.burstTime).max().orElse(0);
+        double V1 = Math.max(lastArrivalTime / 10.0, 1.0);
+        double V2 = Math.max(maxBurstTime / 10.0, 1.0);
+        Function<Process, Double> calculateFCAIFactor = process -> ((10 - process.priority) + Math.ceil(process.arrivalTime / V1) + Math.ceil(process.remainingTime / V2));
 
-        while (!storedProcesses.isEmpty() || !readyQueue.isEmpty()) {
-            // Add newly arrived processes to the ready queue
-            Iterator<Process> iterator = storedProcesses.iterator();
-            while (iterator.hasNext()) {
-                Process p = iterator.next();
-                if (p.arrivalTime <= currentTime) {
-                    readyQueue.add(p);
-                    iterator.remove();
+        // Initialize FCAI Factor and Quantum for each process
+        for (Process p : processesCopy) {
+            p.fcaiFactor = calculateFCAIFactor.apply(p);
+        }
+
+        // Process arrival and add to ready queue
+        while (!processesCopy.isEmpty() && processesCopy.get(0).arrivalTime <= currentTime) {
+            Process arrivingProcess = processesCopy.remove(0);
+            arrivingProcess.fcaiFactor = calculateFCAIFactor.apply(arrivingProcess); // Recalculate FCAI
+            if (!readyQueue.contains(arrivingProcess)) {
+                readyQueue.add(arrivingProcess);
+            }
+        }
+
+        while (!processesCopy.isEmpty() || !readyQueue.isEmpty()) {
+            while (!processesCopy.isEmpty() && processesCopy.get(0).arrivalTime <= currentTime) {
+                Process arrivingProcess = processesCopy.remove(0);
+                arrivingProcess.fcaiFactor = calculateFCAIFactor.apply(arrivingProcess);
+                if (!readyQueue.contains(arrivingProcess)) {
+                    readyQueue.add(arrivingProcess);
                 }
             }
 
-            // If no process is ready, move the time forward
-            if (readyQueue.isEmpty()) {
-                currentTime = processes.get(0).arrivalTime;
-                continue;
-            }
+            if (!readyQueue.isEmpty()) {
+                Process current = readyQueue.remove(0);
+                if (executionOrder.isEmpty() || !(executionOrder.get(executionOrder.size() - 1).equals(String.valueOf(current.id)))) {
+                    executionOrder.add(String.valueOf(current.id));
+                    if (currentTime != 0) switchTime.add(currentTime);
+                }
 
-            // Calculate FCAI factors for all processes in the ready queue
-            for (Process p : readyQueue) {
-                p.fcaiFactor = (10 - p.priority) + Math.ceil(p.arrivalTime / V1) + Math.ceil(p.remainingTime / V2);
-            }
+                // Non-preemptive execution for the first 40% of the quantum
+                int nonPreemptiveTime = (int) Math.ceil(current.quantum * 0.4);
 
-            // Sort the ready queue by FCAI factor
-            List<Process> sortedQueue = new ArrayList<>(readyQueue);
-            sortedQueue.sort(Comparator.comparingDouble(p -> p.fcaiFactor));
-            Process currentProcess = sortedQueue.get(0);
-            readyQueue.remove(currentProcess);
+                // Execute for 40% of the quantum or until the process finishes
+                boolean preempted = false;
+                int actualExecutionTime = 0;
 
-            // Execute the process
-            int quantum = currentProcess.quantum;
-            int nonPreemptiveTime = (int) Math.ceil(0.4 * quantum);
-            int executionTime = Math.min(nonPreemptiveTime, currentProcess.remainingTime);
+                // Execute the process, checking for preemption during execution
+                while (actualExecutionTime < current.quantum && current.remainingTime > 0) {
+                    if (executionOrder.isEmpty() || !executionOrder.get(executionOrder.size() - 1).equals(String.valueOf(current.id))) {
+                        executionOrder.add("P" + current.id); // Add to execution order
+                    }
 
-            currentTime += executionTime;
-            currentProcess.remainingTime -= executionTime;
+                    while (!processesCopy.isEmpty() && processesCopy.get(0).arrivalTime <= currentTime) {
+                        Process arrivingProcess = processesCopy.remove(0);
+                        arrivingProcess.fcaiFactor = calculateFCAIFactor.apply(arrivingProcess);
+                        if (!readyQueue.contains(arrivingProcess)) {
+                            readyQueue.add(arrivingProcess);
+                        }
+                    }
 
-            // Add to execution order
-            if (executionOrder.isEmpty() || !executionOrder.get(executionOrder.size() - 1).equals("P" + currentProcess.id)) {
-                executionOrder.add("P" + currentProcess.id);
-            }
+                    if (actualExecutionTime >= nonPreemptiveTime && !readyQueue.isEmpty()) {
+                        List<Process> tempQueue = new ArrayList<>(readyQueue);
+                        tempQueue.sort(Comparator.comparingDouble(p -> p.fcaiFactor));
+                        Process nextProcess = tempQueue.get(0); // Process with the lowest FCAI Factor
+                        if (nextProcess.fcaiFactor < current.fcaiFactor) {
+                            preempted = true; // Mark as preempted
+                            current.quantum += (current.quantum - actualExecutionTime); // Update the remaining quantum
+                            readyQueue = tempQueue;
+                            readyQueue.remove(current);
+                            readyQueue.add(current);  // Add the process back with updated quantum
+                            break;
+                        }
+                    }
 
-            // Handle process completion or preemption
-            if (currentProcess.remainingTime > 0) {
-                currentProcess.quantum += (quantum - executionTime); // Update quantum if preempted
-                readyQueue.add(currentProcess); // Re-add to queue
+                    currentTime++; // Advance the total time by 1 unit
+                    current.remainingTime--; // Decrease the remaining burst time
+                    actualExecutionTime++; // Track the time used by the process
+                }
+
+                if (current.remainingTime == 0 && !readyQueue.isEmpty()) {
+                    Process nextProcess = readyQueue.get(0);
+
+                    // Add the process back to the ready queue if it's not finished
+                    if (nextProcess.remainingTime > 0 && !readyQueue.contains(nextProcess)) {
+                        readyQueue.add(nextProcess);
+                    }
+                }
+
+                if (current.remainingTime > 0) {
+                    if (!preempted) {
+                        current.quantum += 2;
+                        current.fcaiFactor = calculateFCAIFactor.apply(current);
+
+                        if (!readyQueue.contains(current)) {
+                            readyQueue.add(current);
+                        }
+                    } else {
+                        current.fcaiFactor = calculateFCAIFactor.apply(current);
+
+                        if (!readyQueue.contains(current)) {
+                            readyQueue.add(current);
+                        }
+                    }
+                } else {
+                    current.turnaroundTime = currentTime - current.arrivalTime;
+                    current.waitingTime = current.turnaroundTime - current.burstTime;
+                    finalProcesses.add(current);
+                    totalWaiting += current.waitingTime;
+                    totalTurnaround += current.turnaroundTime;
+                    System.out.println("\nProcess " + current.id +
+                            " Remaining: " + current.remainingTime +
+                            " Quantum: " + current.quantum +
+                            " FCAI: " + current.fcaiFactor);
+                    if (current.waitingTime < 0) {
+                        current.waitingTime = 0;
+                    }
+                }
             } else {
-                // Process completed
-                currentProcess.turnaroundTime = currentTime - currentProcess.arrivalTime;
-                currentProcess.waitingTime = currentProcess.turnaroundTime - currentProcess.burstTime;
-                finalProcesses.add(currentProcess);
+                currentTime++;
             }
-
-            // Debugging information
-            System.out.println("\nProcess " + currentProcess.id +
-                    " Remaining: " + currentProcess.remainingTime +
-                    " Quantum: " + currentProcess.quantum +
-                    " FCAI: " + currentProcess.fcaiFactor);
         }
 
-        // Calculate average waiting and turnaround times
-        for (Process p : finalProcesses) {
-            totalWaiting += p.waitingTime;
-            totalTurnaround += p.turnaroundTime;
+        // Add last time
+        switchTime.add(currentTime);
+
+        // Execution Order is a List of integers [0, 1, 2, ...]
+        List<String> convertedExecutionOrder = new ArrayList<>();
+
+        for (String processId : executionOrder) {
+            // Convert each string to the format "P0", "P1", "P2", ...
+            String formattedProcessId = "P" + processId;
+            convertedExecutionOrder.add(formattedProcessId);
         }
 
-        // Output results
-        System.out.println("\nExecution Order: " + executionOrder);
-        System.out.println("Average Waiting Time = " + (float) totalWaiting / n);
-        System.out.println("Average Turnaround Time = " + (float) totalTurnaround / n);
-
-        averageTurnaroundTime = (float) totalTurnaround / n;
         averageWaitingTime = (float) totalWaiting / n;
+        averageTurnaroundTime = (float) totalTurnaround / n;
 
-        // Sort final processes by ID and print details
         finalProcesses.sort(Comparator.comparingInt(p -> p.id));
         print(finalProcesses);
-        return executionOrder;
+        System.out.println("\nExecution Order: " + convertedExecutionOrder);
+        System.out.println("Average Waiting Time = " + (float) totalWaiting / n);
+        System.out.println("Average Turnaround Time = " + (float) totalTurnaround / n);
+        System.out.println("Context Switch Times: " + switchTime);
+
+        return convertedExecutionOrder;
     }
 
     public static void print(List<Process> processes) {
