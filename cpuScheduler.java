@@ -1,5 +1,6 @@
 import java.io.*;
 import java.util.*;
+import java.util.function.Function;
 
 class Process {
     int id;
@@ -167,10 +168,9 @@ public class Main {
         System.out.println("\nExecution Order: " + executionOrder);
         System.out.println("Average Waiting Time = " + (float) totalWaiting / n);
         System.out.println("Average Turnaround Time = " + (float) totalTurnaround / n);
-        System.out.println("switch Time : " + switchTime);
+//        System.out.println("switch Time : " + switchTime);
 
     }
-    
 
     public static void priorityScheduling(List<Process> processes) {
         processes.sort(Comparator.comparingInt((Process p) -> p.arrivalTime));
@@ -214,7 +214,6 @@ public class Main {
     }
 
 
-           
     public static void fcaiScheduling(List<Process> processes) {
         List<Process> originalProcesses = new ArrayList<>(processes);
 
@@ -369,13 +368,14 @@ public class Main {
 
     }
 
-
     public static void print(List<Process> processes) {
         System.out.println("P\tBT\tAT\tP\tQ\tWT\tTAT");
         for (Process p : processes) {
             System.out.println("P" + p.id + "\t" + p.burstTime + "\t" + p.arrivalTime + "\t" + p.priority + "\t" + p.quantum + "\t" + p.waitingTime + "\t" + p.turnaroundTime);
         }
     }
+
+
 
     public static void main(String[] args)
     {
@@ -404,9 +404,7 @@ public class Main {
                 SRTF(processes,contextSwitchTime,agingFactor);
                 break;
             case 3:
-                System.out.print("Enter context switch time for FCAI: ");
-                int contextSwitchFCAI = input.nextInt();
-                processes = inputProcesses("input.txt");
+                processes = inputProcesses(filePath);
                 fcaiScheduling(processes);
                 break;
             case 4:
