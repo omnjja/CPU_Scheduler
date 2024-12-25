@@ -68,19 +68,20 @@ public class Main {
             }
             readyProcesses.sort(Comparator.comparingInt(p -> p.burstTime)); //sort ready processes by burst time
             //starvation
-            for (Process p : readyProcesses) {
-                int waitTime = startTime - p.arrivalTime ;
+            Iterator<Process> iterator = readyProcesses.iterator();
+            while (iterator.hasNext()) {
+                Process p = iterator.next();
+                int waitTime = startTime - p.arrivalTime;
                 if (waitTime > agingFactor) {
                     waitingQueue.add(p);
+                    iterator.remove();
                 }
             }
             Process selectedProcess ;
-            readyProcesses.sort(Comparator.comparingInt(p -> p.remainingTime)); //sort ready processes according to remaining time
-            if (waitingQueue.isEmpty()) {
-                selectedProcess = readyProcesses.get(0);
-            }
-            else {
+            if (readyProcesses.isEmpty() && !waitingQueue.isEmpty()) {
                 selectedProcess = waitingQueue.poll();
+            } else {
+                selectedProcess = readyProcesses.get(0);
             }
 
             selectedProcess.waitingTime = startTime - selectedProcess.arrivalTime;
