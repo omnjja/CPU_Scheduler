@@ -103,6 +103,7 @@ public class Main {
     }
 
 
+
     public static void SRTF(List<Process> processes, int contextSwitchTime, int agingFactor) {
         int n = processes.size();
         processes.sort(Comparator.comparingInt((Process p) -> p.arrivalTime));
@@ -124,22 +125,27 @@ public class Main {
                 startTime = processes.get(0).arrivalTime;
                 continue;
             }
-            readyProcesses.sort(Comparator.comparingInt(p -> p.remainingTime));
+            readyProcesses.sort(Comparator.comparingInt(p -> p.remainingTime));//sort ready processes according to remaining time
              //starvation
-            for (Process p : readyProcesses) {
+
+            Iterator<Process> iterator = readyProcesses.iterator();
+            while (iterator.hasNext()) {
+                Process p = iterator.next();
                 int waitTime = startTime - p.arrivalTime - (p.burstTime - p.remainingTime);
                 if (waitTime > agingFactor) {
                     waitingQueue.add(p);
+                    iterator.remove();
                 }
             }
             Process selectedProcess ;
-            readyProcesses.sort(Comparator.comparingInt(p -> p.remainingTime)); //sort ready processes according to remaining time
-            if (waitingQueue.isEmpty()) {
-                selectedProcess = readyProcesses.get(0);
-            }
-            else {
+            if (readyProcesses.isEmpty() && !waitingQueue.isEmpty()) {
                 selectedProcess = waitingQueue.poll();
             }
+            else {
+                selectedProcess = readyProcesses.get(0);
+            }
+
+
             if (lastProcess != null && lastProcess != selectedProcess) {
                 switchTime.add(startTime);
                 startTime += contextSwitchTime;
